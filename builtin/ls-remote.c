@@ -47,7 +47,7 @@ int cmd_ls_remote(int argc, const char **argv, const char *prefix)
 	int status = 0;
 	int show_symref_target = 0;
 	const char *uploadpack = NULL;
-	const char **pattern = NULL;
+	char **pattern = NULL;
 	struct transport_ls_refs_options transport_options =
 		TRANSPORT_LS_REFS_OPTIONS_INIT;
 	int i;
@@ -96,9 +96,8 @@ int cmd_ls_remote(int argc, const char **argv, const char *prefix)
 	if (argc > 1) {
 		int i;
 		CALLOC_ARRAY(pattern, argc);
-		for (i = 1; i < argc; i++) {
+		for (i = 1; i < argc; i++)
 			pattern[i - 1] = xstrfmt("*/%s", argv[i]);
-		}
 	}
 
 	if (flags & REF_TAGS)
@@ -136,7 +135,7 @@ int cmd_ls_remote(int argc, const char **argv, const char *prefix)
 		struct ref_array_item *item;
 		if (!check_ref_type(ref, flags))
 			continue;
-		if (!tail_match(pattern, ref->name))
+		if (!tail_match((const char **) pattern, ref->name))
 			continue;
 		item = ref_array_push(&ref_array, ref->name, &ref->old_oid);
 		item->symref = xstrdup_or_null(ref->symref);
@@ -158,5 +157,9 @@ int cmd_ls_remote(int argc, const char **argv, const char *prefix)
 	if (transport_disconnect(transport))
 		status = 1;
 	transport_ls_refs_options_release(&transport_options);
+
+	for (i = 1; i < argc; i++)
+		free(pattern[i - 1]);
+	free(pattern);
 	return status;
 }
