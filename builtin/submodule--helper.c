@@ -2269,6 +2269,7 @@ static int is_tip_reachable(const char *path, const struct object_id *oid)
 	struct child_process cp = CHILD_PROCESS_INIT;
 	struct strbuf rev = STRBUF_INIT;
 	char *hex = oid_to_hex(oid);
+	int reachable;
 
 	cp.git_cmd = 1;
 	cp.dir = path;
@@ -2278,9 +2279,12 @@ static int is_tip_reachable(const char *path, const struct object_id *oid)
 	prepare_submodule_repo_env(&cp.env);
 
 	if (capture_command(&cp, &rev, GIT_MAX_HEXSZ + 1) || rev.len)
-		return 0;
+		reachable = 0;
+	else
+		reachable = 1;
 
-	return 1;
+	strbuf_release(&rev);
+	return reachable;
 }
 
 static int fetch_in_submodule(const char *module_path, int depth, int quiet,
@@ -3135,6 +3139,7 @@ static void append_fetch_remotes(struct strbuf *msg, const char *git_dir_path)
 static int add_submodule(const struct add_data *add_data)
 {
 	char *submod_gitdir_path;
+	char *depth_to_free = NULL;
 	struct module_clone_data clone_data = MODULE_CLONE_DATA_INIT;
 	struct string_list reference = STRING_LIST_INIT_NODUP;
 	int ret = -1;
@@ -3200,7 +3205,7 @@ static int add_submodule(const struct add_data *add_data)
 		}
 		clone_data.dissociate = add_data->dissociate;
 		if (add_data->depth >= 0)
-			clone_data.depth = xstrfmt("%d", add_data->depth);
+			clone_data.depth = depth_to_free = xstrfmt("%d", add_data->depth);
 
 		if (clone_submodule(&clone_data, &reference))
 			goto cleanup;
@@ -3223,7 +3228,9 @@ static int add_submodule(const struct add_data *add_data)
 			die(_("unable to checkout submodule '%s'"), add_data->sm_path);
 	}
 	ret = 0;
+
 cleanup:
+	free(depth_to_free);
 	string_list_clear(&reference, 1);
 	return ret;
 }
